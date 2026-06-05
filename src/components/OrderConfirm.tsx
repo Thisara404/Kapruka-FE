@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { CheckCircle2, Clipboard, CreditCard, Timer } from "lucide-react";
 import { OrderResponse } from "@/lib/types";
 
 interface OrderConfirmProps {
@@ -35,7 +36,7 @@ export default function OrderConfirm({ order }: OrderConfirmProps) {
     <div className="order-confirm-card glass animate-fade-in-up">
       {/* Confetti / celebration header */}
       <div className="order-confirm-header">
-        <div className="order-success-icon">🎉</div>
+        <div className="order-success-icon"><CheckCircle2 size={36} /></div>
         <h3 className="order-confirm-title">Order Created!</h3>
         <p className="order-confirm-subtitle">
           Your order has been placed successfully
@@ -47,7 +48,7 @@ export default function OrderConfirm({ order }: OrderConfirmProps) {
         <span className="order-ref-label">Order Reference</span>
         <button className="order-ref-value" onClick={handleCopyRef} type="button" title="Click to copy">
           {order.order_ref}
-          <span className="copy-indicator">{copied ? "✓ Copied!" : "📋"}</span>
+          <span className="copy-indicator">{copied ? "Copied" : <Clipboard size={14} />}</span>
         </button>
       </div>
 
@@ -82,14 +83,14 @@ export default function OrderConfirm({ order }: OrderConfirmProps) {
         rel="noopener noreferrer"
         className="order-pay-btn"
       >
-        <span className="pay-icon">💳</span>
+        <span className="pay-icon"><CreditCard size={18} /></span>
         Pay Now
       </a>
 
       {/* Expiry notice */}
       {expiryTime && (
         <p className="order-expiry-notice">
-          ⏱️ This payment link expires at <strong>{expiryTime}</strong> (Sri Lanka time)
+          <Timer size={14} /> This payment link expires at <strong>{expiryTime}</strong> (Sri Lanka time)
         </p>
       )}
     </div>

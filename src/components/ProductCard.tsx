@@ -7,12 +7,14 @@ interface ProductCardProps {
   product: Product;
   onSelect: (productId: string, productName: string) => void;
   onViewDetails: (productId: string, productName: string) => void;
+  onBuyNow?: (product: Product) => void;
 }
 
 export default function ProductCard({
   product,
   onSelect,
   onViewDetails,
+  onBuyNow,
 }: ProductCardProps) {
   const formattedPrice = new Intl.NumberFormat("en-LK", {
     style: "currency",
@@ -74,14 +76,25 @@ export default function ProductCard({
           >
             Details
           </button>
-          <button
-            onClick={() => onSelect(product.id, product.name)}
-            disabled={!product.in_stock}
-            className="product-btn primary"
-            type="button"
-          >
-            Select
-          </button>
+          {onBuyNow ? (
+            <button
+              onClick={() => onBuyNow(product)}
+              disabled={!product.in_stock}
+              className="product-btn buy-now"
+              type="button"
+            >
+              Buy Now
+            </button>
+          ) : (
+            <button
+              onClick={() => onSelect(product.id, product.name)}
+              disabled={!product.in_stock}
+              className="product-btn primary"
+              type="button"
+            >
+              Select
+            </button>
+          )}
         </div>
       </div>
     </div>

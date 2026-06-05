@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Camera, Gift, MapPinned, Package, Video } from "lucide-react";
 import { OrderTracking as OrderTrackingType } from "@/lib/types";
 
 interface OrderTrackingProps {
@@ -30,7 +31,7 @@ export default function OrderTrackingCard({ tracking }: OrderTrackingProps) {
   return (
     <div className="order-tracking-card glass animate-fade-in-up">
       <div className="tracking-header">
-        <span className="tracking-icon">📦</span>
+        <span className="tracking-icon"><Package size={24} /></span>
         <div>
           <h3 className="tracking-title">Order #{tracking.order_number}</h3>
           <span className="tracking-status-badge" style={{ background: statusColor() }}>
@@ -109,7 +110,7 @@ export default function OrderTrackingCard({ tracking }: OrderTrackingProps) {
       {/* Greeting message */}
       {tracking.greeting_message && (
         <div className="tracking-greeting">
-          <span>💌</span>
+          <span><Gift size={16} /></span>
           <p>{tracking.greeting_message}</p>
         </div>
       )}
@@ -117,13 +118,13 @@ export default function OrderTrackingCard({ tracking }: OrderTrackingProps) {
       {/* Media indicators */}
       <div className="tracking-media">
         {tracking.has_delivery_photo && (
-          <span className="media-badge">📸 Delivery Photo Available</span>
+          <span className="media-badge"><Camera size={13} /> Delivery Photo Available</span>
         )}
         {tracking.has_delivery_video && (
-          <span className="media-badge">🎥 Delivery Video Available</span>
+          <span className="media-badge"><Video size={13} /> Delivery Video Available</span>
         )}
         {tracking.live_tracking_available && (
-          <span className="media-badge live">📍 Live Tracking Available</span>
+          <span className="media-badge live"><MapPinned size={13} /> Live Tracking Available</span>
         )}
       </div>
     </div>

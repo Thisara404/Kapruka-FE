@@ -2,6 +2,7 @@
 
 import React from "react";
 import { UIMessage } from "ai";
+import { Product } from "@/lib/types";
 import ProductGrid from "./ProductGrid";
 import DeliveryInfo from "./DeliveryInfo";
 import OrderConfirm from "./OrderConfirm";
@@ -12,6 +13,7 @@ interface MessageBubbleProps {
   allMessages: UIMessage[];
   onSelectProduct?: (productId: string, productName: string) => void;
   onViewDetails?: (productId: string, productName: string) => void;
+  onBuyNow?: (product: Product) => void;
   createdAt?: Date | string;
 }
 
@@ -20,6 +22,7 @@ export default function MessageBubble({
   allMessages,
   onSelectProduct,
   onViewDetails,
+  onBuyNow,
   createdAt,
 }: MessageBubbleProps) {
   const role = message?.role as string;
@@ -96,6 +99,7 @@ export default function MessageBubble({
             products={products}
             onSelectProduct={onSelectProduct!}
             onViewDetails={onViewDetails!}
+            onBuyNow={onBuyNow}
           />
         );
       }
@@ -132,46 +136,100 @@ export default function MessageBubble({
     });
   };
 
-  // Rich markdown-like text rendering (bold, lists, links)
+  // Rich markdown-like text rendering (headings, lists, bold, code, links)
   const renderContent = (text: string) => {
     const lines = text.split("\n");
-    return lines.map((line, lineIdx) => {
-      // Handle list items (bullet points)
-      const listMatch = line.match(/^(\s*)[*-]\s+(.*)$/);
-      if (listMatch) {
-        const indent = Math.floor(listMatch[1].length / 2);
-        return (
-          <div key={lineIdx} className="message-list-item" style={{ paddingLeft: `${indent * 16 + 8}px` }}>
-            <span className="list-bullet">•</span>
-            <span>{renderInline(listMatch[2])}</span>
+    const output: React.ReactNode[] = [];
+    let i = 0;
+
+    while (i < lines.length) {
+      const line = lines[i];
+      const trimmed = line.trim();
+
+      // ── Horizontal rule ──────────────────────────────────────
+      if (/^---+$/.test(trimmed) || /^\*\*\*+$/.test(trimmed)) {
+        output.push(<hr key={i} className="message-hr" />);
+        i++;
+        continue;
+      }
+
+      // ── Headings ─────────────────────────────────────────────
+      const h3 = trimmed.match(/^###\s+(.*)/);
+      const h2 = trimmed.match(/^##\s+(.*)/);
+      const h1 = trimmed.match(/^#\s+(.*)/);
+      if (h3) {
+        output.push(<div key={i} className="message-h3">{renderInline(h3[1])}</div>);
+        i++; continue;
+      }
+      if (h2) {
+        output.push(<div key={i} className="message-h2">{renderInline(h2[1])}</div>);
+        i++; continue;
+      }
+      if (h1) {
+        output.push(<div key={i} className="message-h1">{renderInline(h1[1])}</div>);
+        i++; continue;
+      }
+
+      // ── Numbered list items ───────────────────────────────────
+      const numMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
+      if (numMatch) {
+        output.push(
+          <div key={i} className="message-numbered-item">
+            <span className="list-number">{numMatch[1]}.</span>
+            <span>{renderInline(numMatch[2])}</span>
           </div>
         );
+        i++; continue;
       }
 
-      // Regular line
-      return (
-        <React.Fragment key={lineIdx}>
+      // ── Bullet list items (*, -, •) ───────────────────────────
+      const bulletMatch = line.match(/^(\s*)[*\-•]\s+(.*)/);
+      if (bulletMatch) {
+        const indent = Math.floor(bulletMatch[1].length / 2);
+        output.push(
+          <div key={i} className="message-list-item" style={{ paddingLeft: `${indent * 16 + 8}px` }}>
+            <span className="list-bullet">•</span>
+            <span>{renderInline(bulletMatch[2])}</span>
+          </div>
+        );
+        i++; continue;
+      }
+
+      // ── Empty line → spacer ───────────────────────────────────
+      if (trimmed === "") {
+        // Only insert spacer if not at very start/end
+        if (i > 0 && i < lines.length - 1) {
+          output.push(<div key={i} className="message-spacer" />);
+        }
+        i++; continue;
+      }
+
+      // ── Regular paragraph line ────────────────────────────────
+      output.push(
+        <React.Fragment key={i}>
           {renderInline(line)}
-          {lineIdx < lines.length - 1 && <br />}
+          {i < lines.length - 1 && lines[i + 1]?.trim() !== "" && <br />}
         </React.Fragment>
       );
-    });
+      i++;
+    }
+
+    return output;
   };
 
-  // Inline rendering: bold, links, code
-  const renderInline = (text: string) => {
-    // Split by bold markers, links, and inline code
-    const parts = text.split(/(\*\*.*?\*\*|`[^`]+`|\[.*?\]\(.*?\))/g);
+  // Inline rendering: bold, italic, code, links
+  const renderInline = (text: string): React.ReactNode[] => {
+    const parts = text.split(/(\*\*.*?\*\*|\*[^*]+\*|`[^`]+`|\[.*?\]\(.*?\))/g);
     return parts.map((part, idx) => {
-      // Bold
-      if (part.startsWith("**") && part.endsWith("**")) {
+      if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
         return <strong key={idx}>{part.slice(2, -2)}</strong>;
       }
-      // Inline code
-      if (part.startsWith("`") && part.endsWith("`")) {
+      if (part.startsWith("*") && part.endsWith("*") && part.length > 2 && !part.startsWith("**")) {
+        return <em key={idx}>{part.slice(1, -1)}</em>;
+      }
+      if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
         return <code key={idx} className="message-inline-code">{part.slice(1, -1)}</code>;
       }
-      // Links [text](url)
       const linkMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
       if (linkMatch) {
         return (

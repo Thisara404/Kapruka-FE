@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { signOut } from "next-auth/react";
+import { AlertTriangle, LogOut, UserCheck } from "lucide-react";
 
 interface UserMenuProps {
   session: any;
@@ -56,7 +57,8 @@ export default function UserMenu({ session, onOpenAuth }: UserMenuProps) {
   if (!session?.user) {
     return (
       <button className="auth-trigger-btn" onClick={onOpenAuth}>
-        Sign In / Register
+        <UserCheck size={16} />
+        Sign In
       </button>
     );
   }
@@ -79,29 +81,48 @@ export default function UserMenu({ session, onOpenAuth }: UserMenuProps) {
         aria-label="User menu"
       >
         {user.image ? (
-          <img src={user.image} alt={user.name || "User"} className="user-avatar-img" />
-        ) : (
-          <span className="user-avatar-initials">{initials}</span>
-        )}
-        <span className="user-display-name">{user.name}</span>
+          <img
+            src={user.image}
+            alt={user.name || "User"}
+            className="user-avatar-img"
+            referrerPolicy="no-referrer"
+            onError={(e) => {
+              // Fallback to initials if image fails
+              (e.target as HTMLImageElement).style.display = "none";
+              (e.target as HTMLImageElement).nextElementSibling?.removeAttribute("style");
+            }}
+          />
+        ) : null}
+        <span
+          className="user-avatar-initials"
+          style={user.image ? { display: "none" } : undefined}
+        >
+          {initials}
+        </span>
+        <span className="user-display-name">{user.name?.split(" ")[0] ?? "You"}</span>
       </button>
 
       {dropdownOpen && (
         <div className="user-dropdown glass-strong animate-fade-in-up">
           <div className="user-dropdown-header">
-            <p className="user-name">{user.name}</p>
-            <p className="user-email">{user.email}</p>
+            <div className="user-dropdown-avatar">
+              {user.image ? (
+                <img
+                  src={user.image}
+                  alt={user.name || "User"}
+                  className="user-dropdown-avatar-img"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <span className="user-dropdown-avatar-initials">{initials}</span>
+              )}
+            </div>
+            <div>
+              <p className="user-name">{user.name}</p>
+              <p className="user-email">{user.email}</p>
+            </div>
           </div>
           <div className="user-dropdown-divider" />
-          <button
-            className="user-dropdown-item"
-            onClick={() => {
-              setDropdownOpen(false);
-              window.location.reload();
-            }}
-          >
-            New Chat Session
-          </button>
           <button
             className="user-dropdown-item danger"
             onClick={() => {
@@ -109,10 +130,12 @@ export default function UserMenu({ session, onOpenAuth }: UserMenuProps) {
               setConfirmDeactivate(true);
             }}
           >
+            <AlertTriangle size={15} />
             Deactivate Account
           </button>
           <div className="user-dropdown-divider" />
           <button className="user-dropdown-item" onClick={() => signOut({ callbackUrl: "/" })}>
+            <LogOut size={15} />
             Sign Out
           </button>
         </div>
@@ -166,3 +189,4 @@ export default function UserMenu({ session, onOpenAuth }: UserMenuProps) {
     </div>
   );
 }
+

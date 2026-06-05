@@ -3,9 +3,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
+import { Product } from "@/lib/types";
 import MessageBubble from "./MessageBubble";
 import ChatInput from "./ChatInput";
 import TypingIndicator from "./TypingIndicator";
+import CheckoutModal from "./CheckoutModal";
 
 // Simple UUID generator to avoid dependencies
 function generateUUID() {
@@ -16,11 +18,11 @@ function generateUUID() {
   });
 }
 
-const DEFAULT_GREETING_EN = `Hello! I'm **Thisari** 🎁 — your Kapruka shopping assistant. Whether you're looking for the perfect birthday cake, a beautiful flower bouquet, or a thoughtful gift, I'm here to help!
+const DEFAULT_GREETING_EN = `Hello! I'm **Thisari** — your Kapruka shopping assistant. Whether you're looking for the perfect birthday cake, a beautiful flower bouquet, or a thoughtful gift, I'm here to help!
 
 What can I find for you today?`;
 
-const DEFAULT_GREETING_SI = `ආයුබෝවන්! මම **තිසරි** 🎁 — ඔබේ කප්රුක සාප්පු සහායක. උපන්දින කේක්, මල් කැකුළු, හෝ ලස්සන තෑග්ගක් සොයන්නේ නම්, මම මෙහි ඉන්නේ ඔබට උදව් කරන්න!
+const DEFAULT_GREETING_SI = `ආයුබෝවන්! මම **තිසරි** — ඔබේ කප්රුක සාප්පු සහායක. උපන්දින කේක්, මල් කැකුළු, හෝ ලස්සන තෑග්ගක් සොයන්නේ නම්, මම මෙහි ඉන්නේ ඔබට උදව් කරන්න!
 
 අද ඔබට මොනවද සොයන්නේ?`;
 
@@ -34,6 +36,7 @@ function ChatWindowInner({ sessionId, initialLanguage, session }: ChatWindowInne
   const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
   const [language, setLanguage] = useState<"en" | "si">(initialLanguage);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [checkoutProduct, setCheckoutProduct] = useState<Product | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const handleSetLanguage = (lang: "en" | "si") => {
@@ -167,19 +170,51 @@ function ChatWindowInner({ sessionId, initialLanguage, session }: ChatWindowInne
     }
   };
 
+  const handleBuyNow = (product: Product) => {
+    setCheckoutProduct(product);
+  };
+
+  const handleQuickOrderSuccess = (orderResult: any) => {
+    setCheckoutProduct(null);
+    // Insert a synthetic assistant message containing the order confirmation
+    const toolCallId = `quick-order-${Date.now()}`;
+    const confirmMsg: any = {
+      id: toolCallId,
+      role: "assistant",
+      parts: [
+        {
+          type: "text",
+          text: `Your order has been placed. Here are the details:`,
+        },
+        {
+          type: "tool-invocation",
+          toolCallId,
+          toolName: "kapruka_create_order",
+          state: "result",
+          result: orderResult,
+        },
+      ],
+    };
+    setMessages((prev: any[]) => [...prev, confirmMsg]);
+    // Open Kapruka payment portal in new tab
+    if (orderResult?.checkout_url) {
+      window.open(orderResult.checkout_url, "_blank", "noopener,noreferrer");
+    }
+  };
+
   const suggestions =
     language === "si"
       ? [
-          { text: "චොකලට් තෑගි කූඩ සොයන්න 🍫", query: "search for chocolate gift basket" },
-          { text: "කොළඹට මල් යවන්න 💐", query: "I want to send flowers to Colombo" },
-          { text: "උපන්දින කේක් තෝරන්න 🎂", query: "search for birthday cake" },
-          { text: "ඇණවුම ලුහුබඳින්න 📦", query: "I want to track my order" },
+          { text: "චොකලට් තෑගි කූඩ සොයන්න", query: "search for chocolate gift basket" },
+          { text: "කොළඹට මල් යවන්න", query: "I want to send flowers to Colombo" },
+          { text: "උපන්දින කේක් තෝරන්න", query: "search for birthday cake" },
+          { text: "ඇණවුම ලුහුබඳින්න", query: "I want to track my order" },
         ]
       : [
-          { text: "Find a chocolate basket 🍫", query: "I'm looking for a chocolate gift basket" },
-          { text: "Send flowers to Colombo 💐", query: "I want to send flowers to someone in Colombo" },
-          { text: "View birthday cakes 🎂", query: "Show me birthday cakes" },
-          { text: "Track an order 📦", query: "I want to track my order" },
+          { text: "Find a chocolate basket", query: "I'm looking for a chocolate gift basket" },
+          { text: "Send flowers to Colombo", query: "I want to send flowers to someone in Colombo" },
+          { text: "View birthday cakes", query: "Show me birthday cakes" },
+          { text: "Track an order", query: "I want to track my order" },
         ];
 
   if (!historyLoaded) {
@@ -204,7 +239,7 @@ function ChatWindowInner({ sessionId, initialLanguage, session }: ChatWindowInne
       displayErrorMsg = error.message;
     }
     if (displayErrorMsg?.includes("429") || displayErrorMsg?.includes("quota") || displayErrorMsg?.includes("limit") || displayErrorMsg?.includes("RESOURCE_EXHAUSTED")) {
-      displayErrorMsg = "I'm a bit overwhelmed right now — my AI service quota has been temporarily exceeded. Please wait a moment and try again! 🙏";
+      displayErrorMsg = "I'm a bit overwhelmed right now. My AI service quota has been temporarily exceeded. Please wait a moment and try again.";
     }
   }
 
@@ -218,6 +253,7 @@ function ChatWindowInner({ sessionId, initialLanguage, session }: ChatWindowInne
             allMessages={messages}
             onSelectProduct={handleSelectProduct}
             onViewDetails={handleViewDetails}
+            onBuyNow={handleBuyNow}
           />
         ))}
 
@@ -230,7 +266,7 @@ function ChatWindowInner({ sessionId, initialLanguage, session }: ChatWindowInne
             <div className="message-bubble-wrapper">
               <div className="message-author">Thisari</div>
               <div className="error-message-card">
-                <span>😅</span>
+                <span>!</span>
                 <p>{displayErrorMsg || "Something went wrong. Please try sending your message again."}</p>
               </div>
             </div>
@@ -281,6 +317,16 @@ function ChatWindowInner({ sessionId, initialLanguage, session }: ChatWindowInne
           setLanguage={handleSetLanguage}
         />
       </div>
+
+      {checkoutProduct && (
+        <CheckoutModal
+          product={checkoutProduct}
+          senderName={session?.user?.name || ""}
+          accessToken={session?.accessToken}
+          onClose={() => setCheckoutProduct(null)}
+          onSuccess={handleQuickOrderSuccess}
+        />
+      )}
     </div>
   );
 }
