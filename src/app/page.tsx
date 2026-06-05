@@ -1,7 +1,16 @@
+"use client";
+
+import React, { useState } from "react";
+import { useSession } from "next-auth/react";
 import ChatWindow from "@/components/ChatWindow";
+import UserMenu from "@/components/UserMenu";
+import AuthModal from "@/components/AuthModal";
 import styles from "./page.module.css";
 
 export default function Home() {
+  const { data: session } = useSession();
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+
   return (
     <main className={styles.main}>
       <header className={styles.header}>
@@ -12,15 +21,21 @@ export default function Home() {
             <span className={styles.subtitle}>තිසරි · Kapruka AI Shopping Assistant</span>
           </div>
         </div>
-        <div className={styles.statusContainer}>
-          <span className={styles.statusDot} />
-          <span className={styles.statusText}>Active</span>
+
+        <div className="header-actions">
+          <div className={styles.statusContainer}>
+            <span className={styles.statusDot} />
+            <span className={styles.statusText}>Active</span>
+          </div>
+          <UserMenu session={session} onOpenAuth={() => setIsAuthOpen(true)} />
         </div>
       </header>
 
       <section className={styles.chatSection}>
-        <ChatWindow />
+        <ChatWindow session={session} />
       </section>
+
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
     </main>
   );
 }

@@ -27,9 +27,11 @@ const DEFAULT_GREETING_SI = `ආයුබෝවන්! මම **තිසරි*
 interface ChatWindowInnerProps {
   sessionId: string;
   initialLanguage: "en" | "si";
+  session: any;
 }
 
-function ChatWindowInner({ sessionId, initialLanguage }: ChatWindowInnerProps) {
+function ChatWindowInner({ sessionId, initialLanguage, session }: ChatWindowInnerProps) {
+  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
   const [language, setLanguage] = useState<"en" | "si">(initialLanguage);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -38,7 +40,7 @@ function ChatWindowInner({ sessionId, initialLanguage }: ChatWindowInnerProps) {
     setLanguage(lang);
     localStorage.setItem("thisari_language", lang);
 
-    // If the chat is completely fresh (only contains default welcome), we can update the welcome message language
+    // If the chat is completely fresh (only contains default welcome), update the welcome message language
     if (messages.length === 1 && messages[0].id === "welcome") {
       setMessages([
         {
@@ -62,9 +64,13 @@ function ChatWindowInner({ sessionId, initialLanguage }: ChatWindowInnerProps) {
     setMessages,
     sendMessage,
     status,
+    error,
   } = useChat({
     transport: new DefaultChatTransport({
-      api: "/api/chat",
+      api: `${BACKEND_URL}/api/chat`,
+      headers: {
+        Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : "",
+      } as any,
       body: { sessionId },
     }),
   });
@@ -83,13 +89,18 @@ function ChatWindowInner({ sessionId, initialLanguage }: ChatWindowInnerProps) {
 
   const isLoading = status === "submitted" || status === "streaming";
 
-  // Load message history from DB on sessionId set
+  // Load message history from DB on sessionId or user login set
   useEffect(() => {
     if (!sessionId) return;
 
     const fetchHistory = async () => {
       try {
-        const res = await fetch(`/api/chat/history?sessionId=${sessionId}`);
+        const url = `${BACKEND_URL}/api/chat/history?sessionId=${sessionId}`;
+        const reqHeaders: Record<string, string> = {};
+        if (session?.accessToken) {
+          reqHeaders["Authorization"] = `Bearer ${session.accessToken}`;
+        }
+        const res = await fetch(url, { headers: reqHeaders });
         if (res.ok) {
           const data = await res.json();
           if (data.messages && data.messages.length > 0) {
@@ -110,15 +121,28 @@ function ChatWindowInner({ sessionId, initialLanguage }: ChatWindowInnerProps) {
             ]);
           }
         }
-      } catch (error) {
-        console.error("Failed to load chat history:", error);
+      } catch (fetchError) {
+        console.error("Failed to load chat history:", fetchError);
+        // Still show welcome on failure
+        setMessages([
+          {
+            id: "welcome",
+            role: "assistant",
+            parts: [
+              {
+                type: "text",
+                text: language === "si" ? DEFAULT_GREETING_SI : DEFAULT_GREETING_EN,
+              },
+            ] as any,
+          },
+        ]);
       } finally {
         setHistoryLoaded(true);
       }
     };
 
     fetchHistory();
-  }, [sessionId, setMessages]);
+  }, [sessionId, session?.user?.id, setMessages, language]);
 
   // Auto-scroll to bottom of chat
   useEffect(() => {
@@ -133,13 +157,13 @@ function ChatWindowInner({ sessionId, initialLanguage }: ChatWindowInnerProps) {
 
   const handleSelectProduct = (productId: string, productName: string) => {
     if (status === "ready") {
-      sendMessage({ text: `I'd like to select ${productName} (ID: ${productId}).` });
+      sendMessage({ text: `I'd like to select ${productName} (ID: ${productId}). Can you check delivery options?` });
     }
   };
 
   const handleViewDetails = (productId: string, productName: string) => {
     if (status === "ready") {
-      sendMessage({ text: `Please show me the details for ${productName} (ID: ${productId}).` });
+      sendMessage({ text: `Show me more details for ${productName} (ID: ${productId}).` });
     }
   };
 
@@ -147,15 +171,15 @@ function ChatWindowInner({ sessionId, initialLanguage }: ChatWindowInnerProps) {
     language === "si"
       ? [
           { text: "චොකලට් තෑගි කූඩ සොයන්න 🍫", query: "search for chocolate gift basket" },
-          { text: "කොළඹට මල් යවන්න 💐", query: "check delivery of flower bouquet to Colombo" },
+          { text: "කොළඹට මල් යවන්න 💐", query: "I want to send flowers to Colombo" },
           { text: "උපන්දින කේක් තෝරන්න 🎂", query: "search for birthday cake" },
-          { text: "ඇණවුම ලුහුබඳින්න 📦", query: "track my order" },
+          { text: "ඇණවුම ලුහුබඳින්න 📦", query: "I want to track my order" },
         ]
       : [
-          { text: "Find a chocolate basket 🍫", query: "search for chocolate gift basket" },
-          { text: "Send flowers to Colombo 💐", query: "check delivery of flower bouquet to Colombo" },
-          { text: "View birthday cakes 🎂", query: "search for birthday cake" },
-          { text: "Track an order 📦", query: "track my order" },
+          { text: "Find a chocolate basket 🍫", query: "I'm looking for a chocolate gift basket" },
+          { text: "Send flowers to Colombo 💐", query: "I want to send flowers to someone in Colombo" },
+          { text: "View birthday cakes 🎂", query: "Show me birthday cakes" },
+          { text: "Track an order 📦", query: "I want to track my order" },
         ];
 
   if (!historyLoaded) {
@@ -170,18 +194,48 @@ function ChatWindowInner({ sessionId, initialLanguage }: ChatWindowInnerProps) {
   // Check if we only have the greeting message
   const showSuggestions = messages.length <= 1;
 
+  // Custom UI friendly error message extractor
+  let displayErrorMsg = "";
+  if (error) {
+    try {
+      const parsed = JSON.parse(error.message);
+      displayErrorMsg = parsed.error;
+    } catch {
+      displayErrorMsg = error.message;
+    }
+    if (displayErrorMsg?.includes("429") || displayErrorMsg?.includes("quota") || displayErrorMsg?.includes("limit") || displayErrorMsg?.includes("RESOURCE_EXHAUSTED")) {
+      displayErrorMsg = "I'm a bit overwhelmed right now — my AI service quota has been temporarily exceeded. Please wait a moment and try again! 🙏";
+    }
+  }
+
   return (
     <div className="chat-window-container">
       <div className="chat-messages-container">
-        {messages.map((message) => (
+        {messages.map((message, idx) => (
           <MessageBubble
-            key={message.id}
+            key={message.id || `msg-${idx}`}
             message={message}
             allMessages={messages}
             onSelectProduct={handleSelectProduct}
             onViewDetails={handleViewDetails}
           />
         ))}
+
+        {/* Error display */}
+        {error && (
+          <div className="message-row assistant animate-fade-in">
+            <div className="message-avatar-container">
+              <div className="message-avatar">ති</div>
+            </div>
+            <div className="message-bubble-wrapper">
+              <div className="message-author">Thisari</div>
+              <div className="error-message-card">
+                <span>😅</span>
+                <p>{displayErrorMsg || "Something went wrong. Please try sending your message again."}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {isLoading && messages[messages.length - 1]?.role === "user" && (
           <div className="message-row assistant animate-fade-in">
@@ -231,7 +285,11 @@ function ChatWindowInner({ sessionId, initialLanguage }: ChatWindowInnerProps) {
   );
 }
 
-export default function ChatWindow() {
+interface ChatWindowProps {
+  session?: any;
+}
+
+export default function ChatWindow({ session }: ChatWindowProps) {
   const [sessionId, setSessionId] = useState<string>("");
   const [language, setLanguage] = useState<"en" | "si">("en");
 
@@ -264,6 +322,7 @@ export default function ChatWindow() {
     <ChatWindowInner
       sessionId={sessionId}
       initialLanguage={language}
+      session={session}
     />
   );
 }
