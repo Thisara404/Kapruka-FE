@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   // Extract client IP, prioritizing request.ip, then headers
   const forwardedFor = request.headers.get("x-forwarded-for");
   const ip = (request as any).ip || (forwardedFor ? forwardedFor.split(",")[0].trim() : "127.0.0.1");

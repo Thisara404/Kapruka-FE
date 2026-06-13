@@ -2,10 +2,11 @@
 
 import React, { useState } from "react";
 import { useSession } from "next-auth/react";
-import ChatWindow from "@/components/ChatWindow";
-import UserMenu from "@/components/UserMenu";
-import AuthModal from "@/components/AuthModal";
-import { Plus } from "lucide-react";
+import ChatWindow from "@/components/chat/ChatWindow";
+import Header from "@/components/layout/Header";
+import AuthModal from "@/components/auth/AuthModal";
+import CartDrawer from "@/components/cart/CartDrawer";
+import { CartProvider } from "@/contexts/CartContext";
 import styles from "./page.module.css";
 
 function generateUUID() {
@@ -16,13 +17,12 @@ function generateUUID() {
   });
 }
 
-export default function Home() {
+function HomeContent() {
   const { data: session } = useSession();
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [sessionKey, setSessionKey] = useState(0);
 
   const handleNewChat = () => {
-    // Generate a fresh session ID and force remount of ChatWindow
     const newId = generateUUID();
     localStorage.setItem("thisari_session_id", newId);
     setSessionKey((k) => k + 1);
@@ -35,41 +35,25 @@ export default function Home() {
       <div className={styles.orb2} aria-hidden />
       <div className={styles.orb3} aria-hidden />
 
-      <header className={styles.header}>
-        <div className={styles.brand}>
-          <div className={styles.avatar}>ති</div>
-          <div className={styles.brandText}>
-            <h1 className={styles.title}>Thisari</h1>
-            <span className={styles.subtitle}>තිසරි · Kapruka AI Shopping Assistant</span>
-          </div>
-        </div>
-
-        <div className={styles.headerActions}>
-          <div className={styles.statusContainer}>
-            <span className={styles.statusDot} />
-            <span className={styles.statusText}>Online</span>
-          </div>
-          {session?.user && (
-            <button
-              className={styles.newChatBtn}
-              onClick={handleNewChat}
-              title="Start a new conversation"
-              aria-label="New chat"
-            >
-              <Plus size={15} />
-              New Chat
-            </button>
-          )}
-          <UserMenu session={session} onOpenAuth={() => setIsAuthOpen(true)} />
-        </div>
-      </header>
+      <Header
+        onNewChat={handleNewChat}
+        onOpenAuth={() => setIsAuthOpen(true)}
+      />
 
       <section className={styles.chatSection}>
         <ChatWindow key={sessionKey} session={session} />
       </section>
 
+      <CartDrawer />
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
     </main>
   );
 }
 
+export default function Home() {
+  return (
+    <CartProvider>
+      <HomeContent />
+    </CartProvider>
+  );
+}

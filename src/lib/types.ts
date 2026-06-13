@@ -128,3 +128,9 @@ export interface Category {
   url: string;
   children?: Category[];
 }
+
+/** Shopping cart item */
+export interface CartItem {
+  product: Product;
+  quantity: number;
+}
